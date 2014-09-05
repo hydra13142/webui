@@ -218,14 +218,16 @@ const (
 	Head = `<html>
 <head>
 <script type="text/javascript">
-var ws;
+var ws, path;
 if(!("WebSocket" in window))
 {
 	alert("unsupport websocket!");
 }
 else
 {
-	ws = new WebSocket("ws://%s");
+    path = location.pathname;
+	path = path.substring(0, path.lastIndexOf("/"));
+	ws = new WebSocket("ws://" + location.host + path + "/interact");
 	ws.onopen = function()
 	{
 		// alert("ready to go!");
@@ -252,11 +254,11 @@ else
 			}
 			if(o.type=="container")
 			{
-				o.innerHTML=e[key];
+				o.innerHTML = e[key];
 			}
 			else
 			{
-				o.value=e[key];
+				o.value = e[key];
 			}
 		}
 	};
@@ -269,11 +271,11 @@ function findset(e)
 {
 	var n = e.childNodes;
 	var s = new Array();
-	if(e.type != "radio" || e.type != "check")
+	if(e.type!="radio" || e.type!="check")
 	{
 		return;
 	}
-	for(i=0; i<n.length; i++)
+	for(var i=0; i<n.length; i++)
 	{
 		if(n[i].checked)
 		{
@@ -286,33 +288,33 @@ function myfunc(e)
 {
 	var o, m, s = {};
 	o = document.getElementsByTagName("input");
-	for(var i=0; i<o.length;i++)
+	for(var i=0; i<o.length; i++)
 	{
 		if(o[i].type=="text" || o[i].type=="password")
 		{
-			s[o[i].id]=o[i].value;
+			s[o[i].id] = o[i].value;
 		}
 	}
 	o = document.getElementsByTagName("textarea");
-	for(var i=0; i<o.length;i++)
+	for(var i=0; i<o.length; i++)
 	{
-		s[o[i].id]=o[i].value;
+		s[o[i].id] = o[i].value;
 	}
 	o = document.getElementsByTagName("select");
-	for(var i=0; i<o.length;i++)
+	for(var i=0; i<o.length; i++)
 	{
-		s[o[i].id]=o[i].value;
+		s[o[i].id] = o[i].value;
 	}
 	o = document.getElementsByTagName("form");
-	for(var i=0; i<o.length;i++)
+	for(var i=0; i<o.length; i++)
 	{
 		m = findset(o[i]);
 		if(m!=undefined)
 		{
-			s[o[i].id]=m;
+			s[o[i].id] = m;
 		}
 	}
-	ws.send(JSON.stringify({"call":e.id,"param":s}));
+	ws.send(JSON.stringify({"call":e.id, "param":s}));
 }
 </script>
 </head>

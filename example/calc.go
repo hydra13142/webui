@@ -74,9 +74,8 @@ func main() {
 			},
 		},
 	}
-	h, s := NewHandler(w, "calc.htm", "127.0.0.1:9999")
-	go http.ListenAndServe(":9999", s)
-	http.ListenAndServe(":9998", h)
+	h := NewHandler(w, "calc.htm")
+	http.ListenAndServe(":9999", h)
 }
 
 func opr(a, b float64, o string) float64 {
