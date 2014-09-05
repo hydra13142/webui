@@ -3,28 +3,12 @@ package webui
 
 import "fmt"
 
-// Param用来保管参数信息
-type Param map[string]string
-
-// 所有控件都实现的接口
-type Object interface {
-
-	// 返回该控件的HTML排布
-	Format(l, t int) string
-
-	// 返回控件的ID
-	ID() string
-
-	// 返回控件的操作函数
-	DO() func(Param) (Param, error)
-}
-
 // 所有控件都有的属性
 type Common struct {
 	Id, Value     string
 	Left, Top     int
 	Width, Height int
-	Do            func(Param) (Param, error)
+	Do            func(*Context)
 }
 
 func (a Common) Format(l, t int) string {
@@ -33,7 +17,7 @@ func (a Common) Format(l, t int) string {
 func (a Common) ID() string {
 	return a.Id
 }
-func (a Common) DO() func(Param) (Param, error) {
+func (a Common) DO() func(*Context) {
 	return a.Do
 }
 
@@ -235,12 +219,12 @@ else
 	ws.onmessage = function(m)
 	{
 		var o, e = JSON.parse(m.data);
-		if(e.call!=undefined)
+		if(e.error!=undefined)
 		{
-			alert(e.call);
+			alert(e.error);
 			return;
 		}
-		e = e.param;
+		e = e.answer;
 		for(var key in e)
 		{
 			o = document.getElementById(key);

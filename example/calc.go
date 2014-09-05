@@ -7,14 +7,14 @@ import (
 	"strings"
 )
 
-var (
+type Cond struct {
 	last float64
 	op   string
 	in   bool
-)
+}
 
-func init() {
-	last, op, in = 0, "=", false
+func NewCond() interface{} {
+	return &Cond{0, "=", false}
 }
 
 func main() {
@@ -26,19 +26,21 @@ func main() {
 				Common: Common{"ct", "", 10, 10, 160, 200, nil},
 				Sub: []Object{
 					&Text{Common: Common{"tx", "0", 0, 0, 160, 40, nil}, Readonly: true},
-					&Button{Common: Common{"n0", "0", 00, 160, 40, 40, func(p Param) (Param, error) {
-						if in {
-							s := p["tx"]
+					&Button{Common: Common{"n0", "0", 00, 160, 40, 40, func(c *Context) {
+						hold := c.Hold.(*Cond)
+						if hold.in {
+							s := c.Para["tx"]
 							if len(s) >= 16 {
-								return Param{}, nil
+								c.Err = "line too long"
+								return
 							}
 							if s != "0" {
 								s = s + "0"
 							}
-							return Param{"tx": s}, nil
+							c.Ans["tx"] = s
 						} else {
-							in = true
-							return Param{"tx": "0"}, nil
+							hold.in = true
+							c.Ans["tx"] = "0"
 						}
 					}}},
 					&Button{Common: Common{"n1", "1", 00, 120, 40, 40, add("1")}},
@@ -50,19 +52,21 @@ func main() {
 					&Button{Common: Common{"n7", "7", 00, 40, 40, 40, add("7")}},
 					&Button{Common: Common{"n8", "8", 40, 40, 40, 40, add("8")}},
 					&Button{Common: Common{"n9", "9", 80, 40, 40, 40, add("9")}},
-					&Button{Common: Common{"pt", ".", 40, 160, 40, 40, func(p Param) (Param, error) {
-						if in {
-							s := p["tx"]
+					&Button{Common: Common{"pt", ".", 40, 160, 40, 40, func(c *Context) {
+						hold := c.Hold.(*Cond)
+						if hold.in {
+							s := c.Para["tx"]
 							if len(s) >= 16 {
-								return Param{}, nil
+								c.Err = "line too long"
+								return
 							}
 							if !strings.ContainsRune(s, '.') {
 								s = s + "."
 							}
-							return Param{"tx": s}, nil
+							c.Ans["tx"] = s
 						} else {
-							in = true
-							return Param{"tx": "0."}, nil
+							hold.in = true
+							c.Ans["tx"] = "0."
 						}
 					}}},
 					&Button{Common: Common{"o1", "+", 120, 40, 40, 40, run("+")}},
@@ -74,7 +78,7 @@ func main() {
 			},
 		},
 	}
-	h := NewHandler(w, "calc.htm")
+	h := NewHandler(w, "calc.htm", NewCond)
 	http.ListenAndServe(":9999", h)
 }
 
@@ -93,28 +97,31 @@ func opr(a, b float64, o string) float64 {
 	}
 	return a
 }
-func add(c string) func(p Param) (Param, error) {
-	return func(p Param) (Param, error) {
-		if in {
-			s := p["tx"]
+func add(t string) func(c *Context) {
+	return func(c *Context) {
+		hold := c.Hold.(*Cond)
+		if hold.in {
+			s := c.Para["tx"]
 			if len(s) >= 16 {
-				return Param{}, nil
+				c.Err = "line too long"
+				return
 			}
 			if s[0] == '0' && !strings.ContainsRune(s, '.') {
 				s = s[1:]
 			}
-			return Param{"tx": s + c}, nil
+			c.Ans["tx"] = s + t
 		} else {
-			in = true
-			return Param{"tx": c}, nil
+			hold.in = true
+			c.Ans["tx"] = t
 		}
 	}
 }
-func run(o string) func(p Param) (Param, error) {
-	return func(p Param) (Param, error) {
-		x, _ := strconv.ParseFloat(p["tx"], 64)
-		x = opr(last, x, op)
-		last, op, in = x, o, false
-		return Param{"tx": strconv.FormatFloat(x, 'g', -1, 64)}, nil
+func run(o string) func(c *Context) {
+	return func(c *Context) {
+		hold := c.Hold.(*Cond)
+		x, _ := strconv.ParseFloat(c.Para["tx"], 64)
+		x = opr(hold.last, x, hold.op)
+		hold.last, hold.op, hold.in = x, o, false
+		c.Ans["tx"] = strconv.FormatFloat(x, 'g', -1, 64)
 	}
 }

@@ -6,15 +6,9 @@ import (
 	"os"
 )
 
-// 保管页面和服务端交互的信息
-type Action struct {
-	Call  string `json:"call,omitempty"`
-	Param Param  `json:"param"`
-}
-
-func find(act map[string]func(Param) (Param, error), sub []Object) map[string]func(Param) (Param, error) {
+func find(act map[string]func(*Context), sub []Object) map[string]func(*Context) {
 	if act == nil {
-		act = map[string]func(Param) (Param, error){}
+		act = map[string]func(*Context){}
 	}
 	for _, s := range sub {
 		if Do := s.DO(); Do != nil {
@@ -33,10 +27,12 @@ func find(act map[string]func(Param) (Param, error), sub []Object) map[string]fu
 }
 
 // 创建一个监听服务，并返回两个Handler，一个用来管理页面访问，一个用来处理websocket
-func NewHandler(win *Window, page string) *http.ServeMux {
+// 本函数最后一个参数用于生成连接专一的内部参数，建议该函数参数返回指针
+// 该参数会保存如Context.Hold字段，可以用类型推断取出
+func NewHandler(win *Window, page string, loc func() interface{}) *http.ServeMux {
 	act := find(nil, win.Sub)
-	n := http.NewServeMux()
-	n.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	mux := http.NewServeMux()
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if _, err := os.Stat(page); err != nil {
 			if !os.IsNotExist(err) {
 				http.NotFound(w, req)
@@ -54,25 +50,26 @@ func NewHandler(win *Window, page string) *http.ServeMux {
 		}
 		http.ServeFile(w, req, page)
 	}))
-	n.Handle("/interact", websocket.Handler(func(ws *websocket.Conn) {
-		data := Action{"", Param{}}
+	mux.Handle("/interact", websocket.Handler(func(ws *websocket.Conn) {
+		env := &Context{}
+		if loc != nil {
+			env.Hold = loc()
+		}
 		for {
-			err := websocket.JSON.Receive(ws, &data)
+			env.Para = map[string]string{}
+			env.Call = ""
+			err := websocket.JSON.Receive(ws, &env.Import)
 			if err != nil {
 				break
 			}
-			param, err := act[data.Call](data.Param)
-			if err != nil {
-				data.Call = err.Error()
-			} else {
-				data.Call = ""
-			}
-			data.Param = param
-			err = websocket.JSON.Send(ws, data)
+			env.Ans = map[string]string{}
+			env.Err = ""
+			act[env.Import.Call](env)
+			err = websocket.JSON.Send(ws, env.Export)
 			if err != nil {
 				break
 			}
 		}
 	}))
-	return n
+	return mux
 }
